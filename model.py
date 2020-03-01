@@ -97,6 +97,20 @@ class Encoder(nn.Module):
         self.rkhs_block_1 = NopNet()
         self.rkhs_block_5 = FakeRKHSConvNet(self.ndf_5, n_rkhs, use_bn)
         self.rkhs_block_7 = FakeRKHSConvNet(self.ndf_7, n_rkhs, use_bn)
+        
+        #self.tanh_layer_block_1 = nn.Sequential(
+        #    nn.Tanh(),
+        #    nn.Conv2d(n_rkhs, n_rkhs, (1, 1)),
+        #    )
+        #self.tanh_layer_block_5 = nn.Sequential(
+        #    nn.Tanh(),
+        #    nn.Conv2d(n_rkhs, n_rkhs, (1, 1)),
+        #    )
+        #self.tanh_layer_block_7 = nn.Sequential(
+        #    nn.Tanh(),
+        #    nn.Conv2d(n_rkhs, n_rkhs, (1, 1)),
+        #    )
+
 
     def _forward_acts(self, x):
         '''
@@ -131,6 +145,11 @@ class Encoder(nn.Module):
         r1 = self.rkhs_block_1(acts[self.dim2layer[1]])
         r5 = self.rkhs_block_5(acts[self.dim2layer[5]])
         r7 = self.rkhs_block_7(acts[self.dim2layer[7]])
+        
+        #r1 = self.tanh_layer_block_1(r1)
+        #r5 = self.tanh_layer_block_5(r5)
+        #r7 = self.tanh_layer_block_7(r7)
+
         return r1, r5, r7
 
 
@@ -233,7 +252,7 @@ class Model(nn.Module):
         self.class_modules = [self.evaluator]
         return self.evaluator
 
-    def forward(self, x1, x2, class_only=False):
+    def forward(self, args, x1, x2, class_only=False):
         '''
         Input:
           x1 : images from which to extract features -- x1 ~ A(x)
@@ -276,7 +295,7 @@ class Model(nn.Module):
 
         # compute NCE infomax objective at multiple scales
         loss_1t5, loss_1t7, loss_5t5, lgt_reg = \
-            self.g2l_loss(r1_x1, r5_x1, r7_x1, r1_x2, r5_x2, r7_x2)
+            self.g2l_loss(r1_x1, r5_x1, r7_x1, r1_x2, r5_x2, r7_x2, args)
         res_dict['g2l_1t5'] = loss_1t5
         res_dict['g2l_1t7'] = loss_1t7
         res_dict['g2l_5t5'] = loss_5t5
@@ -395,7 +414,7 @@ class FakeRKHSConvNet(nn.Module):
             for i in range(n_input):
                 eye_mask[i, i, 0, 0] = 1
             self.shortcut.weight.data.uniform_(-0.01, 0.01)
-            self.shortcut.weight.data.masked_fill_(torch.tensor(eye_mask), 1.)
+            self.shortcut.weight.data.masked_fill_(torch.tensor(eye_mask).bool(), 1.)
         return
 
     def init_weights(self, init_scale=1.):

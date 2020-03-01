@@ -15,7 +15,7 @@ from costs import loss_xent
 
 
 def _train(model, optim_inf, scheduler_inf, checkpointer, epochs,
-           train_loader, test_loader, stat_tracker, log_dir, device):
+           train_loader, test_loader, stat_tracker, log_dir, device, args):
     '''
     Training loop for optimizing encoder
     '''
@@ -28,7 +28,8 @@ def _train(model, optim_inf, scheduler_inf, checkpointer, epochs,
         lr_real = pg['lr']
 
     # IDK, maybe this helps?
-    torch.cuda.empty_cache()
+    # but it makes the training slow
+    # torch.cuda.empty_cache()
 
     # prepare checkpoint and stats accumulator
     next_epoch, total_updates = checkpointer.get_current_position()
@@ -45,7 +46,7 @@ def _train(model, optim_inf, scheduler_inf, checkpointer, epochs,
             images1 = images1.to(device)
             images2 = images2.to(device)
             # run forward pass through model to get global and local features
-            res_dict = model(x1=images1, x2=images2, class_only=False)
+            res_dict = model(args, x1=images1, x2=images2, class_only=False)
             lgt_glb_mlp, lgt_glb_lin = res_dict['class']
             # compute costs for all self-supervised tasks
             loss_g2l = (res_dict['g2l_1t5'] +
@@ -71,22 +72,23 @@ def _train(model, optim_inf, scheduler_inf, checkpointer, epochs,
 
             # record loss and accuracy on minibatch
             epoch_stats.update_dict({
-                'loss_inf': loss_inf.item(),
-                'loss_cls': loss_cls.item(),
-                'loss_g2l': loss_g2l.item(),
-                'lgt_reg': res_dict['lgt_reg'].item(),
-                'loss_g2l_1t5': res_dict['g2l_1t5'].item(),
-                'loss_g2l_1t7': res_dict['g2l_1t7'].item(),
-                'loss_g2l_5t5': res_dict['g2l_5t5'].item()
+                'loss_inf': loss_inf.detach().item(),
+                'loss_cls': loss_cls.detach().item(),
+                'loss_g2l': loss_g2l.detach().item(),
+                'lgt_reg': res_dict['lgt_reg'].detach().item(),
+                'loss_g2l_1t5': res_dict['g2l_1t5'].detach().item(),
+                'loss_g2l_1t7': res_dict['g2l_1t7'].detach().item(),
+                'loss_g2l_5t5': res_dict['g2l_5t5'].detach().item()
             }, n=1)
             update_train_accuracies(epoch_stats, labels, lgt_glb_mlp, lgt_glb_lin)
 
             # shortcut diagnostics to deal with long epochs
             total_updates += 1
             epoch_updates += 1
+            # this command makes the training slow
+            # torch.cuda.empty_cache()
             if (total_updates % 100) == 0:
                 # IDK, maybe this helps?
-                torch.cuda.empty_cache()
                 time_stop = time.time()
                 spu = (time_stop - time_start) / 100.
                 print('Epoch {0:d}, {1:d} updates -- {2:.4f} sec/update'
@@ -96,7 +98,7 @@ def _train(model, optim_inf, scheduler_inf, checkpointer, epochs,
                 # record diagnostics
                 eval_start = time.time()
                 fast_stats = AverageMeterSet()
-                test_model(model, test_loader, device, fast_stats, max_evals=100000)
+                test_model(args, model, test_loader, device, fast_stats, max_evals=100000)
                 stat_tracker.record_stats(
                     fast_stats.averages(total_updates, prefix='fast/'))
                 eval_time = time.time() - eval_start
@@ -107,7 +109,7 @@ def _train(model, optim_inf, scheduler_inf, checkpointer, epochs,
 
         # update learning rate
         scheduler_inf.step(epoch)
-        test_model(model, test_loader, device, epoch_stats, max_evals=500000)
+        test_model(args, model, test_loader, device, epoch_stats, max_evals=500000)
         epoch_str = epoch_stats.pretty_string(ignore=model.tasks)
         diag_str = '{0:d}: {1:s}'.format(epoch, epoch_str)
         print(diag_str)
@@ -117,7 +119,7 @@ def _train(model, optim_inf, scheduler_inf, checkpointer, epochs,
 
 
 def train_self_supervised(model, learning_rate, dataset, train_loader,
-                          test_loader, stat_tracker, checkpointer, log_dir, device):
+                          test_loader, stat_tracker, checkpointer, log_dir, device, args):
     # configure optimizer
     mods_inf = [m for m in model.info_modules]
     mods_cls = [m for m in model.class_modules]
@@ -128,12 +130,12 @@ def train_self_supervised(model, learning_rate, dataset, train_loader,
     # configure learning rate schedulers for the optimizers
     if dataset in [Dataset.C10, Dataset.C100, Dataset.STL10]:
         scheduler = MultiStepLR(optimizer, milestones=[250, 280], gamma=0.2)
-        epochs = 300
+        epochs = args.epochs
     else:
         # best imagenet results use longer schedules...
         # -- e.g., milestones=[60, 90], epochs=100
-        scheduler = MultiStepLR(optimizer, milestones=[30, 45], gamma=0.2)
-        epochs = 50
+        scheduler = MultiStepLR(optimizer, milestones=[90, 135], gamma=0.2)
+        epochs = args.epochs
     # train the model
     _train(model, optimizer, scheduler, checkpointer, epochs,
-           train_loader, test_loader, stat_tracker, log_dir, device)
+           train_loader, test_loader, stat_tracker, log_dir, device, args)

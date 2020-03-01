@@ -1,4 +1,25 @@
 # Learning Representations by Maximizing Mutual Information Across Views
+```
+Training CIFAR10 large
+CUDA_VISIBLE_DEVICES=0,1,2,3 python train.py --loss ours --epochs 300 --ndf 256 --n_rkhs 2048 --batch_size 480 --tclip 20.0 --n_depth 10 --dataset C10 --rkhs --relative_ratio 0.01 | tee $(date "+%Y%m%d%H%M%S%N").txt
+Training CIFAR10 small
+CUDA_VISIBLE_DEVICES=0,1,2,3 python train.py --loss ours --epochs 300 --ndf 192 --n_rkhs 1536 --batch_size 480 --tclip 20.0 --n_depth 8 --dataset C10 --rkhs --relative_ratio 0.01 | tee $(date "+%Y%m%d%H%M%S%N").txt
+Training CIFAR100 large
+CUDA_VISIBLE_DEVICES=0,1,2,3 python train.py --loss ours --epochs 300 --ndf 256 --n_rkhs 2048 --batch_size 480 --tclip 20.0 --n_depth 10 --dataset C100 --rkhs --relative_ratio 0.01 | tee $(date "+%Y%m%d%H%M%S%N").txt
+Training CIFAR100 small
+CUDA_VISIBLE_DEVICES=0,1,2,3 python train.py --loss ours --epochs 300 --ndf 192 --n_rkhs 1536 --batch_size 480 --tclip 20.0 --n_depth 8 --dataset C100 --rkhs --relative_ratio 0.01 | tee $(date "+%Y%m%d%H%M%S%N").txt
+Training ImageNet with 16 GB GPUs
+CUDA_VISIBLE_DEVICES=0,1,2,3 python train.py --loss ours --epochs 150 --ndf 192 --n_rkhs 1536 --batch_size 480 --tclip 20.0 --n_depth 8 --dataset IN128 --input_dir ~/CLS-LOC/ --rkhs --relative_ratio 0.01 | tee $(date "+%Y%m%d%H%M%S%N").txt
+
+
+Training CIFAR10 large original InfoNCE
+CUDA_VISIBLE_DEVICES=0,1,2,3 python train.py --loss nce --epochs 300 --ndf 256 --n_rkhs 2048 --batch_size 480 --tclip 20.0 --n_depth 10 --dataset C10 --rkhs --l2_reg 5e-2 --use_tanh_clip | tee $(date "+%Y%m%d%H%M%S%N").txt
+```
+
+Requirement:
+```
+pip install tensorboard==1.14.0 future tensorboardX git+https://github.com/wbaek/theconf
+```
 
 ## Introduction
 **AMDIM** (Augmented Multiscale Deep InfoMax) is an approach to self-supervised representation learning based on maximizing mutual information between features extracted from multiple *views* of a shared *context*. 

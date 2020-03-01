@@ -6,12 +6,12 @@ import torch.nn.init as init
 from mixed_precision import maybe_half
 
 
-def test_model(model, test_loader, device, stats, max_evals=200000):
+def test_model(args, model, test_loader, device, stats, max_evals=200000):
     '''
     Evaluate accuracy on test set
     '''
     # warm up batchnorm stats based on current model
-    _warmup_batchnorm(model, test_loader, device, batches=50, train_loader=False)
+    _warmup_batchnorm(args, model, test_loader, device, batches=50, train_loader=False)
 
     def get_correct_count(lgt_vals, lab_vals):
         # count how many predictions match the target labels
@@ -30,7 +30,7 @@ def test_model(model, test_loader, device, stats, max_evals=200000):
         images = images.to(device)
         labels = labels.cpu()
         with torch.no_grad():
-            res_dict = model(x1=images, x2=images, class_only=True)
+            res_dict = model(args, x1=images, x2=images, class_only=True)
             lgt_glb_mlp, lgt_glb_lin = res_dict['class']
         # check classification accuracy
         correct_glb_mlp += get_correct_count(lgt_glb_mlp, labels)
@@ -44,7 +44,7 @@ def test_model(model, test_loader, device, stats, max_evals=200000):
     stats.update('test_accuracy_linear_classifier', acc_glb_lin, n=1)
 
 
-def _warmup_batchnorm(model, data_loader, device, batches=100, train_loader=False):
+def _warmup_batchnorm(args, model, data_loader, device, batches=100, train_loader=False):
     '''
     Run some batches through all parts of the model to warmup the running
     stats for batchnorm layers.
@@ -56,7 +56,7 @@ def _warmup_batchnorm(model, data_loader, device, batches=100, train_loader=Fals
         if train_loader:
             images = images[0]
         images = images.to(device)
-        _ = model(x1=images, x2=images, class_only=True)
+        _ = model(args, x1=images, x2=images, class_only=True)
 
 
 def flatten(x):

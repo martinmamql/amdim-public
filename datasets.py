@@ -5,8 +5,10 @@ from PIL import Image
 import numpy as np
 import torch
 from torchvision import datasets, transforms
-
-
+from FastAutoAugment.augmentations import Lighting 
+from FastAutoAugment.data import Augmentation
+from FastAutoAugment.archive import fa_resnet50_rimagenet
+from FastAutoAugment.data import _IMAGENET_PCA
 INTERP = 3
 
 
@@ -166,28 +168,47 @@ class TransformsImageNet128:
     def __init__(self):
         # image augmentation functions
         self.flip_lr = transforms.RandomHorizontalFlip(p=0.5)
-        rand_crop = \
-            transforms.RandomResizedCrop(128, scale=(0.3, 1.0), ratio=(0.7, 1.4),
-                                         interpolation=INTERP)
-        col_jitter = transforms.RandomApply([
-            transforms.ColorJitter(0.4, 0.4, 0.4, 0.1)], p=0.8)
-        rnd_gray = transforms.RandomGrayscale(p=0.25)
-        post_transform = transforms.Compose([
+        normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                     std=[0.229, 0.224, 0.225])
+        self.train_transform = transforms.Compose([
+            transforms.RandomResizedCrop(128, scale=(0.2, 0.9), ratio=(0.7, 1.4),
+                                         interpolation=3),
+            transforms.ColorJitter(0.4, 0.4, 0.4, 0.1),
+            transforms.RandomGrayscale(p=0.25),
             transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                 std=[0.229, 0.224, 0.225])
+            Lighting(0.1, _IMAGENET_PCA['eigval'], _IMAGENET_PCA['eigvec']),
+            normalize
         ])
         self.test_transform = transforms.Compose([
-            transforms.Resize(146, interpolation=INTERP),
+            transforms.Resize(146, interpolation=3),
             transforms.CenterCrop(128),
-            post_transform
+            transforms.ToTensor(),
+            normalize
         ])
-        self.train_transform = transforms.Compose([
-            rand_crop,
-            col_jitter,
-            rnd_gray,
-            post_transform
-        ])
+        self.train_transform.transforms.insert(0, Augmentation(fa_resnet50_rimagenet()))
+        #self.flip_lr = transforms.RandomHorizontalFlip(p=0.5)
+        #rand_crop = \
+        #    transforms.RandomResizedCrop(128, scale=(0.3, 1.0), ratio=(0.7, 1.4),
+        #                                 interpolation=INTERP)
+        #col_jitter = transforms.RandomApply([
+        #    transforms.ColorJitter(0.4, 0.4, 0.4, 0.1)], p=0.8)
+        #rnd_gray = transforms.RandomGrayscale(p=0.25)
+        #post_transform = transforms.Compose([
+        #    transforms.ToTensor(),
+        #    transforms.Normalize(mean=[0.485, 0.456, 0.406],
+        #                         std=[0.229, 0.224, 0.225])
+        #])
+        #self.test_transform = transforms.Compose([
+        #    transforms.Resize(146, interpolation=INTERP),
+        #    transforms.CenterCrop(128),
+        #    post_transform
+        #])
+        #self.train_transform = transforms.Compose([
+        #    rand_crop,
+        #    col_jitter,
+        #    rnd_gray,
+        #    post_transform
+        #])
 
     def __call__(self, inp):
         inp = self.flip_lr(inp)

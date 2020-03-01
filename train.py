@@ -11,11 +11,17 @@ from checkpoint import Checkpointer
 from task_self_supervised import train_self_supervised
 from task_classifiers import train_classifiers
 
+
+#import warnings
+#warnings.filterwarnings('error')
+
 parser = argparse.ArgumentParser(description='Infomax Representations - Training Script')
 # parameters for general training stuff
 parser.add_argument('--dataset', type=str, default='STL10')
 parser.add_argument('--batch_size', type=int, default=200,
                     help='input batch size (default: 200)')
+parser.add_argument('--epochs', type=int, default=150,
+                    help='input batch size (default: 150)')
 parser.add_argument('--learning_rate', type=float, default=0.0002,
                     help='learning rate')
 parser.add_argument('--seed', type=int, default=1,
@@ -24,15 +30,26 @@ parser.add_argument('--amp', action='store_true', default=False,
                     help='Enables automatic mixed precision')
 
 # parameters for model and training objective
+parser.add_argument('--loss', type=str, default='ours',
+                    help="which objective to use, 'nce', 'JS' or 'ours' (default: 'ours')")
 parser.add_argument('--classifiers', action='store_true', default=False,
                     help="Wether to run self-supervised encoder or"
                     "classifier training task")
+parser.add_argument('--l2_reg', type=float, default=None,
+                    help="l2 regularization factor")
+parser.add_argument('--rkhs', action='store_true', default=False,
+                    help="Whether to use rkhs scaling or not")
+parser.add_argument('--use_tanh_clip', action='store_true', default=False,
+                    help=" whether or not use tanh clip")
+parser.add_argument('--hard_clamping', nargs='+', dest='hard_clamping', type=int, default=None) # applicable to: 'nn', 'gru'
 parser.add_argument('--ndf', type=int, default=128,
                     help='feature width for encoder')
 parser.add_argument('--n_rkhs', type=int, default=1024,
                     help='number of dimensions in fake RKHS embeddings')
 parser.add_argument('--tclip', type=float, default=20.0,
-                    help='soft clipping range for NCE scores')
+                    help='soft clipping range')
+parser.add_argument('--relative_ratio', type=float, default=0.0,
+                    help='relative ratio for training stability')
 parser.add_argument('--n_depth', type=int, default=3)
 parser.add_argument('--use_bn', type=int, default=0)
 
@@ -100,7 +117,7 @@ def main():
     # select which type of training to do
     task = train_classifiers if args.classifiers else train_self_supervised
     task(model, args.learning_rate, dataset, train_loader,
-         test_loader, stat_tracker, checkpointer, args.output_dir, torch_device)
+         test_loader, stat_tracker, checkpointer, args.output_dir, torch_device, args)
 
 
 if __name__ == "__main__":
